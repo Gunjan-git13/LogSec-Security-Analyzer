@@ -69,6 +69,7 @@ button:disabled{opacity:.6;cursor:wait}
     {% if error %}
     <div class="flash-message error" role="alert">{{ error }}</div>
     {% endif %}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
         <div class="flash-message {{ category }}" role="status">{{ message }}</div>
@@ -210,10 +211,17 @@ button:disabled{opacity:.6;cursor:wait}
 <script>
 (function () {
     "use strict";
+
     const $ = id => document.getElementById(id);
     const select = $("monitoredFileSelect");
-    let loginChart = null, ipChart = null, busy = false;
+
+    let loginChart = null;
+    let ipChart = null;
+    let busy = false;
+    let refreshing = false;
+
     const tabs = document.querySelectorAll(".tab");
+
     const panels = {
         upload: $("uploadPanel"),
         paste: $("pastePanel"),
@@ -221,16 +229,27 @@ button:disabled{opacity:.6;cursor:wait}
         live: $("livePanel")
     };
 
-    tabs.forEach(tab => tab.addEventListener("click", function () {
-        tabs.forEach(t => t.classList.remove("active"));
-        this.classList.add("active");
-        Object.values(panels).forEach(p => p.classList.remove("active"));
-        panels[this.dataset.mode].classList.add("active");
-    }));
+    tabs.forEach(tab => {
+        tab.addEventListener("click", function () {
+            tabs.forEach(item => item.classList.remove("active"));
+            this.classList.add("active");
+
+            Object.values(panels).forEach(panel => {
+                if (panel) panel.classList.remove("active");
+            });
+
+            const selectedPanel = panels[this.dataset.mode];
+            if (selectedPanel) selectedPanel.classList.add("active");
+        });
+    });
 
     function showMessage(message, error = false) {
-        $("liveMessage").textContent = message;
-        $("liveMessage").style.color = error ? "#fb7185" : "";
+        const element = $("liveMessage");
+
+        if (!element) return;
+
+        element.textContent = message;
+        element.style.color = error ? "#fb7185" : "";
     }
 
     function getReport(data) {
@@ -238,177 +257,443 @@ button:disabled{opacity:.6;cursor:wait}
     }
 
     function createCharts() {
-        if (typeof Chart === "undefined") return;
-        let initial = {successful:0, failed:0, ips:[], attempts:[]};
-        try { initial = JSON.parse($("initial-chart-data").dataset.json); } catch(e) {}
-        const text = getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#edf4ff";
-        const muted = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#94a7bf";
-        const border = getComputedStyle(document.documentElement).getPropertyValue("--border").trim() || "#293b52";
+        if (typeof Chart === "undefined") {
+            console.warn("Chart.js could not be loaded.");
+            return;
+        }
+
+        const initialElement = $("initial-chart-data");
+
+        let initial = {
+            successful: 0,
+            failed: 0,
+            ips: [],
+            attempts: []
+        };
+
+        try {
+            if (initialElement) {
+                initial = JSON.parse(initialElement.dataset.json);
+            }
+        } catch (error) {
+            console.error("Could not read initial chart data:", error);
+        }
+
+        const rootStyle = getComputedStyle(document.documentElement);
+
+        const text =
+            rootStyle.getPropertyValue("--text").trim() || "#edf4ff";
+
+        const muted =
+            rootStyle.getPropertyValue("--muted").trim() || "#94a7bf";
+
+        const border =
+            rootStyle.getPropertyValue("--border").trim() || "#293b52";
 
         loginChart = new Chart($("loginChart"), {
             type: "doughnut",
-            data: {labels:["Successful logins","Failed logins"], datasets:[{data:[initial.successful||0,initial.failed||0],backgroundColor:["#34d399","#fb7185"],borderWidth:0}]},
-            options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:text}}}}
+            data: {
+                labels: ["Successful logins", "Failed logins"],
+                datasets: [{
+                    data: [
+                        Number(initial.successful) || 0,
+                        Number(initial.failed) || 0
+                    ],
+                    backgroundColor: ["#34d399", "#fb7185"],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: text }
+                    }
+                }
+            }
         });
+
         ipChart = new Chart($("ipChart"), {
-            type:"bar",
-            data:{labels:initial.ips.length?initial.ips:["No alerts"],datasets:[{label:"Failed attempts",data:initial.attempts.length?initial.attempts:[0],backgroundColor:"#38bdf8",borderRadius:5}]},
-            options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:text}}},scales:{x:{ticks:{color:muted},grid:{color:border}},y:{beginAtZero:true,ticks:{precision:0,color:muted},grid:{color:border}}}}
+            type: "bar",
+            data: {
+                labels: initial.ips.length ? initial.ips : ["No alerts"],
+                datasets: [{
+                    label: "Failed attempts",
+                    data: initial.attempts.length
+                        ? initial.attempts
+                        : [0],
+                    backgroundColor: "#38bdf8",
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: text }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: muted },
+                        grid: { color: border }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            color: muted
+                        },
+                        grid: { color: border }
+                    }
+                }
+            }
         });
     }
 
     function renderReport(report, source, logs) {
         report = report || {};
-        const alerts = Array.isArray(report.alerts) ? report.alerts : [];
-        $("totalEntries").textContent = report.total_entries ?? (logs || []).length;
-        $("successCount").textContent = report.successful_logins ?? 0;
-        $("failedCount").textContent = report.failed_logins ?? 0;
+        logs = Array.isArray(logs) ? logs : [];
+
+        const alerts = Array.isArray(report.alerts)
+            ? report.alerts
+            : [];
+
+        $("totalEntries").textContent =
+            report.total_entries ?? logs.length;
+
+        $("successCount").textContent =
+            report.successful_logins ?? 0;
+
+        $("failedCount").textContent =
+            report.failed_logins ?? 0;
+
         $("alertCount").textContent = alerts.length;
         $("alertCountDetail").textContent = alerts.length;
-        $("invalidCount").textContent = report.invalid_entries ?? 0;
-        $("resultSource").textContent = "Source: " + source;
-        $("alertReportTitle").textContent = "Analysis results · " + source;
 
-        $("securityAlertList").replaceChildren();
+        $("invalidCount").textContent =
+            report.invalid_entries ?? 0;
+
+        $("resultSource").textContent = "Source: " + source;
+        $("alertReportTitle").textContent =
+            "Analysis results · " + source;
+
+        const alertList = $("securityAlertList");
+        alertList.replaceChildren();
+
         if (!alerts.length) {
             const empty = document.createElement("div");
             empty.className = "empty";
-            empty.textContent = "No repeated failed login attempts detected in this file.";
-            $("securityAlertList").appendChild(empty);
+            empty.textContent =
+                "No repeated failed login attempts detected in this file.";
+
+            alertList.appendChild(empty);
         } else {
             alerts.forEach(alert => {
-                const severity = String(alert.severity || "Low").toLowerCase();
+                const severity =
+                    String(alert.severity || "Low").toLowerCase();
+
                 const card = document.createElement("div");
                 card.className = "alert-card " + severity;
+
                 const head = document.createElement("div");
                 head.className = "panel-head";
+
                 const title = document.createElement("strong");
                 title.textContent = "Suspicious login activity";
+
                 const badge = document.createElement("span");
                 badge.className = "badge " + severity;
                 badge.textContent = alert.severity || "Low";
+
                 head.append(title, badge);
+
                 const ip = document.createElement("div");
                 ip.className = "muted";
-                ip.textContent = "IP address: " + (alert.ip_address || "Unknown");
+                ip.textContent =
+                    "IP address: " + (alert.ip_address || "Unknown");
+
                 const count = document.createElement("div");
                 count.className = "muted";
-                count.textContent = "Failed attempts: " + (alert.attempts || 0);
+                count.textContent =
+                    "Failed attempts: " + (alert.attempts || 0);
+
                 card.append(head, ip, count);
-                $("securityAlertList").appendChild(card);
+                alertList.appendChild(card);
             });
         }
 
         const tbody = $("logEntries");
         tbody.replaceChildren();
-        (logs || []).filter(line => String(line).trim()).slice(-200).forEach(line => {
-            const tr = document.createElement("tr");
-            const typeCell = document.createElement("td");
-            const lineCell = document.createElement("td");
-            const low = String(line).toLowerCase();
-            let type = "OTHER";
-            if (/failed login|login failed|failed authentication|authentication failed|invalid password|unauthorized/.test(low)) type = "FAILED";
-            else if (/login successful|successful login|login success|logged in successfully|authentication successful/.test(low)) type = "SUCCESS";
-            const tag = document.createElement("span");
-            tag.className = "tag" + (type === "FAILED" ? " fail" : type === "OTHER" ? " other" : "");
-            tag.textContent = type;
-            typeCell.appendChild(tag);
-            lineCell.textContent = line;
-            tr.append(typeCell, lineCell);
-            tbody.appendChild(tr);
-        });
+
+        logs.filter(line => String(line).trim())
+            .slice(-200)
+            .forEach(line => {
+                const tr = document.createElement("tr");
+                const typeCell = document.createElement("td");
+                const lineCell = document.createElement("td");
+
+                const low = String(line).toLowerCase();
+                let type = "OTHER";
+
+                if (/failed login|login failed|failed authentication|authentication failed|invalid password|unauthorized/.test(low)) {
+                    type = "FAILED";
+                } else if (/login successful|successful login|login success|logged in successfully|authentication successful/.test(low)) {
+                    type = "SUCCESS";
+                }
+
+                const tag = document.createElement("span");
+                tag.className = "tag" +
+                    (type === "FAILED" ? " fail" :
+                    type === "OTHER" ? " other" : "");
+
+                tag.textContent = type;
+                typeCell.appendChild(tag);
+                lineCell.textContent = line;
+
+                tr.append(typeCell, lineCell);
+                tbody.appendChild(tr);
+            });
+
         if (!tbody.children.length) {
-            const tr = document.createElement("tr"), td = document.createElement("td");
-            td.colSpan = 2; td.className = "empty"; td.textContent = "No log entries found.";
-            tr.appendChild(td); tbody.appendChild(tr);
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+
+            td.colSpan = 2;
+            td.className = "empty";
+            td.textContent = "No log entries found.";
+
+            tr.appendChild(td);
+            tbody.appendChild(tr);
         }
 
         if (loginChart) {
-            loginChart.data.datasets[0].data = [Number(report.successful_logins || 0), Number(report.failed_logins || 0)];
+            loginChart.data.datasets[0].data = [
+                Number(report.successful_logins) || 0,
+                Number(report.failed_logins) || 0
+            ];
+
             loginChart.update();
         }
+
         if (ipChart) {
-            ipChart.data.labels = alerts.length ? alerts.map(a => a.ip_address) : ["No alerts"];
-            ipChart.data.datasets[0].data = alerts.length ? alerts.map(a => Number(a.attempts || 0)) : [0];
+            ipChart.data.labels = alerts.length
+                ? alerts.map(alert => alert.ip_address || "Unknown")
+                : ["No alerts"];
+
+            ipChart.data.datasets[0].data = alerts.length
+                ? alerts.map(alert => Number(alert.attempts) || 0)
+                : [0];
+
             ipChart.update();
         }
     }
 
     async function fetchJSON(url, options = {}) {
-        const response = await fetch(url, {...options, cache:"no-store"});
+        const response = await fetch(url, {
+            ...options,
+            cache: "no-store"
+        });
+
         let data;
-        try { data = await response.json(); }
-        catch (e) { throw new Error("Server did not return JSON. Check the Flask endpoint."); }
-        if (!response.ok || data.success === false) throw new Error(data.error || data.message || ("Request failed: " + response.status));
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error(
+                "Server did not return JSON. Check the Flask endpoint."
+            );
+        }
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.error ||
+                data.message ||
+                ("Request failed: " + response.status)
+            );
+        }
+
         return data;
     }
 
-    async function loadFiles() {
-        const old = select.value;
-        try {
-            const data = await fetchJSON("/api/monitored-files");
-            const files = data.files || data.monitored_files || [];
-            select.replaceChildren();
-            files.forEach(name => {
-                const option = document.createElement("option");
-                option.value = name; option.textContent = name;
-                select.appendChild(option);
-            });
-            if (!files.length) {
-                const option = document.createElement("option");
-                option.value = "live_logs.txt"; option.textContent = "live_logs.txt (no files found)";
-                select.appendChild(option);
-            }
-            if ([...select.options].some(o => o.value === old)) select.value = old;
-            $("fileMessage").textContent = files.length ? files.length + " monitored file(s) found." : "No monitored files found. Check the monitored_logs folder.";
-            await refreshLiveStatus();
-        } catch (error) {
-            $("fileMessage").textContent = "Could not load monitored files: " + error.message;
-            showMessage("File list request failed. Check Flask server and API route.", true);
-        }
-    }
-
     async function refreshLiveStatus() {
-        if (busy) return;
-        const filename = select.value || "live_logs.txt";
+        if (refreshing || busy) return;
+
+        refreshing = true;
+
+        const button = $("refreshLive");
+        const originalText = button.textContent;
+
+        button.disabled = true;
+        button.textContent = "Refreshing...";
+
         try {
-            const data = await fetchJSON("/api/monitored-logs?file=" + encodeURIComponent(filename));
+            const filename = select.value || "live_logs.txt";
+
+            const data = await fetchJSON(
+                "/api/monitored-logs?file=" +
+                encodeURIComponent(filename)
+            );
+
             const status = data.status || {};
-            $("liveSource").textContent = data.source || filename;
-            $("liveFileStatus").textContent = status.file_exists ? "Available" : "Not found";
-            $("liveFileSize").textContent = (Number(status.file_size_bytes) || 0) + " bytes";
-            $("liveChecked").textContent = status.modified_at || status.checked_at || "—";
-            $("liveBadge").textContent = status.file_exists ? "● File ready" : "● Unavailable";
-            $("liveBadge").style.color = status.file_exists ? "#34d399" : "#fb7185";
+
+            $("liveSource").textContent =
+                data.source || filename;
+
+            $("liveFileStatus").textContent =
+                status.file_exists ? "Available" : "Not found";
+
+            $("liveFileSize").textContent =
+                (Number(status.file_size_bytes) || 0) + " bytes";
+
+            $("liveChecked").textContent =
+                status.modified_at || status.checked_at || "—";
+
+            $("liveBadge").textContent =
+                status.file_exists ? "● File ready" : "● Unavailable";
+
+            $("liveBadge").style.color =
+                status.file_exists ? "#34d399" : "#fb7185";
+
             const logs = Array.isArray(data.logs) ? data.logs : [];
-            $("liveLogPreview").classList.toggle("empty", !logs.length);
-            $("liveLogPreview").textContent = logs.length ? logs.slice(-30).join("\n") : "No log entries found.";
+
+            $("liveLogPreview").classList.toggle(
+                "empty",
+                logs.length === 0
+            );
+
+            $("liveLogPreview").textContent = logs.length
+                ? logs.slice(-30).join("\n")
+                : "No log entries found.";
+
             showMessage("Preview refreshed for " + filename + ".");
+
         } catch (error) {
+            console.error("Refresh failed:", error);
+
             $("liveFileStatus").textContent = "Unavailable";
             $("liveBadge").textContent = "● Error";
             $("liveBadge").style.color = "#fb7185";
+
             $("liveLogPreview").classList.add("empty");
             $("liveLogPreview").textContent = error.message;
-            showMessage("Could not refresh selected file.", true);
+
+            showMessage(
+                "Could not refresh selected file: " + error.message,
+                true
+            );
+
+        } finally {
+            refreshing = false;
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    async function loadFiles() {
+        if (busy) return;
+
+        const old = select.value;
+        const button = $("refreshFiles");
+
+        button.disabled = true;
+
+        try {
+            const data = await fetchJSON("/api/monitored-files");
+
+            const files = Array.isArray(data.files)
+                ? data.files
+                : Array.isArray(data.monitored_files)
+                    ? data.monitored_files
+                    : [];
+
+            select.replaceChildren();
+
+            files.forEach(name => {
+                const option = document.createElement("option");
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+
+            if (!files.length) {
+                const option = document.createElement("option");
+                option.value = "live_logs.txt";
+                option.textContent = "live_logs.txt (no files found)";
+                select.appendChild(option);
+            }
+
+            if ([...select.options].some(option => option.value === old)) {
+                select.value = old;
+            }
+
+            $("fileMessage").textContent = files.length
+                ? files.length + " monitored file(s) found."
+                : "No monitored files found. Check the monitored_logs folder.";
+
+            await refreshLiveStatus();
+
+        } catch (error) {
+            console.error("File list loading failed:", error);
+
+            $("fileMessage").textContent =
+                "Could not load monitored files: " + error.message;
+
+            showMessage(
+                "File list request failed. Check Flask server and API route.",
+                true
+            );
+
+        } finally {
+            button.disabled = false;
         }
     }
 
     async function analyzeSelectedFile() {
-        if (busy) return;
+        if (busy || refreshing) return;
+
         busy = true;
+
         $("analyzeSelected").disabled = true;
         $("analyzeLive").disabled = true;
+
         const filename = select.value || "live_logs.txt";
+
         showMessage("Analyzing " + filename + "…");
+
         try {
             const form = new FormData();
             form.append("file", filename);
-            const data = await fetchJSON("/api/analyze", {method:"POST", body:form});
-            renderReport(getReport(data), data.source || filename, data.logs || []);
-            showMessage("Analysis complete for " + (data.source || filename) + ".");
+
+            const data = await fetchJSON("/api/analyze", {
+                method: "POST",
+                body: form
+            });
+
+            const report = getReport(data);
+            const logs = Array.isArray(data.logs) ? data.logs : [];
+
+            renderReport(
+                report,
+                data.source || filename,
+                logs
+            );
+
+            showMessage(
+                "Analysis complete for " +
+                (data.source || filename) + "."
+            );
+
         } catch (error) {
-            showMessage("Analysis failed: " + error.message, true);
+            console.error("Analysis failed:", error);
+
+            showMessage(
+                "Analysis failed: " + error.message,
+                true
+            );
+
         } finally {
             busy = false;
             $("analyzeSelected").disabled = false;
@@ -416,33 +701,60 @@ button:disabled{opacity:.6;cursor:wait}
         }
     }
 
-    $("analyzeSelected").addEventListener("click", analyzeSelectedFile);
-    $("analyzeLive").addEventListener("click", analyzeSelectedFile);
-    $("refreshLive").addEventListener("click", refreshLiveStatus);
-    $("refreshFiles").addEventListener("click", loadFiles);
-    select.addEventListener("change", refreshLiveStatus);
+    $("analyzeSelected").addEventListener(
+        "click",
+        analyzeSelectedFile
+    );
+
+    $("analyzeLive").addEventListener(
+        "click",
+        analyzeSelectedFile
+    );
+
+    $("refreshLive").addEventListener(
+        "click",
+        refreshLiveStatus
+    );
+
+    $("refreshFiles").addEventListener(
+        "click",
+        loadFiles
+    );
+
+    select.addEventListener(
+        "change",
+        refreshLiveStatus
+    );
 
     createCharts();
+
     loadFiles();
-    setInterval(async function () {
-    await refreshLiveStatus();
 
-    if (!busy && select.value) {
-        try {
-            const response = await fetchJSON(
-                "/api/monitored-logs?file=" + encodeURIComponent(select.value)
-            );
+    // Refresh the selected file preview every five seconds.
+    // Automatically refresh the log preview every 5 seconds
+setInterval(async function () {
+    if (busy || !select.value) {
+        return;
+    }
 
+    try {
+        const response = await fetchJSON(
+            "/api/monitored-logs?file=" +
+            encodeURIComponent(select.value)
+        );
+
+        if (response.success) {
             renderReport(
                 getReport(response),
                 response.source || select.value,
                 response.logs || []
             );
-        } catch (error) {
-            console.error("Automatic monitoring error:", error);
         }
+    } catch (error) {
+        console.error("Automatic monitoring error:", error);
     }
 }, 5000);
+
 })();
 </script>
 {% endblock %}
