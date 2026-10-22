@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis History | LogSec{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-container {
+        max-width: 1200px;
+        margin: 35px auto;
+        padding: 0 22px 35px;
+    }
+
+    .history-header {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+
+    .history-header h1 {
+        color: var(--text);
+        font-size: 28px;
+        margin: 0 0 10px;
+    }
+
+    .history-header p {
+        color: var(--muted);
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .history-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 25px;
+        overflow: hidden;
+    }
+
+    .history-card h2 {
+        color: var(--text);
+        font-size: 21px;
+        margin: 0 0 8px;
+    }
+
+    .history-description {
+        color: var(--muted);
+        margin: 0 0 18px;
+        font-size: 14px;
+    }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        white-space: nowrap;
+        color: var(--text);
+        font-size: 14px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 15px 13px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .history-table th {
+        background: var(--input);
+        color: var(--text);
+        font-weight: 700;
+    }
+
+    .history-table tbody tr {
+        transition: background 0.2s ease;
+    }
+
+    .history-table tbody tr:hover {
+        background: var(--input);
+    }
+
+    .history-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .number-badge {
+        display: inline-block;
+        min-width: 24px;
+        text-align: center;
+        padding: 5px 8px;
+        border-radius: 7px;
+        background: var(--input);
+        color: var(--text);
+        font-weight: 700;
+    }
+
+    .success-count {
+        color: #10b981;
+        font-weight: 700;
+    }
+
+    .failed-count {
+        color: #ef4444;
+        font-weight: 700;
+    }
+
+    .alert-count {
+        color: #f59e0b;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        padding: 35px 20px;
+        text-align: center;
+        background: var(--input);
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        color: var(--muted);
+        line-height: 1.8;
+    }
+
+    .empty-state .empty-icon {
+        display: block;
+        font-size: 38px;
+        margin-bottom: 12px;
+    }
+
+    .history-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    @media (max-width: 600px) {
+        .history-container {
+            padding: 0 12px 25px;
+            margin-top: 20px;
+        }
+
+        .history-header,
+        .history-card {
+            padding: 18px;
+            border-radius: 13px;
+        }
+
+        .history-header h1 {
+            font-size: 23px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-container">
+
+    <section class="history-header">
+        <h1>📋 Analysis History</h1>
+        <p>
+            Review previous log security analysis reports,
+            login statistics and detected security alerts.
+        </p>
+    </section>
+
+    <section class="history-card">
+
+        <h2>Previous Analyses</h2>
+        <p class="history-description">
+            Your saved analysis reports are listed below.
+        </p>
+
+        {% if records %}
+
+        <div class="table-wrapper">
+            <table class="history-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Filename</th>
+                        <th>Analysis Date</th>
+                        <th>Total Entries</th>
+                        <th>Successful Logins</th>
+                        <th>Failed Logins</th>
+                        <th>Alerts</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>
+                            <span class="number-badge">
+                                {{ record.id }}
+                            </span>
+                        </td>
+
+                        <td>{{ record.filename }}</td>
+
+                        <td>{{ record.analyzed_at }}</td>
+
+                        <td>{{ record.total_entries }}</td>
+
+                        <td class="success-count">
+                            {{ record.successful_logins }}
+                        </td>
+
+                        <td class="failed-count">
+                            {{ record.failed_logins }}
+                        </td>
+
+                        <td class="alert-count">
+                            {{ record.alert_count }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+
+        {% else %}
+
+        <div class="empty-state">
+            <span class="empty-icon">📂</span>
+            <strong>No analysis history available yet.</strong>
+            <br>
+            Analyze a log file from the dashboard to create your first report.
+        </div>
+
+        {% endif %}
+
+        <div class="history-actions">
+            <a href="{{ url_for('index') }}" class="btn primary">
+                ← Back to Dashboard
+            </a>
+        </div>
+
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="LogSec - Log Security Analyzer"
+    >
+
+    <title>{% block title %}LogSec | Log Security Analyzer{% endblock %}</title>
+
+    <!-- Apply saved theme early to reduce theme flicker -->
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem("logsec-theme");
+
+                if (savedTheme === "light" || savedTheme === "dark") {
+                    document.documentElement.setAttribute(
+                        "data-theme",
+                        savedTheme
+                    );
+                }
+            } catch (error) {
+                document.documentElement.setAttribute(
+                    "data-theme",
+                    "dark"
+                );
+            }
+        })();
+    </script>
+
+    <!-- Common stylesheet -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <!-- Page-specific CSS can be added here -->
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    <!-- Shared Header -->
+    <header class="topbar">
+        <a
+            class="brand"
+            href="{{ url_for('index') if current_user.is_authenticated else url_for('auth.login') }}"
+            aria-label="LogSec Home"
+        >
+            🛡️ LOG<span>SEC</span>
+        </a>
+
+        <div class="top-actions">
+
+            <button
+                type="button"
+                class="theme-toggle"
+                data-theme-toggle
+                aria-label="Switch theme"
+            >
+                <span data-theme-icon aria-hidden="true">☀️</span>
+                <span data-theme-label>Light mode</span>
+            </button>
+
+            {% if current_user.is_authenticated %}
+                <span class="user-pill">
+                    Signed in as
+                    <strong>{{ current_user.username }}</strong>
+                </span>
+
+                <form
+                    method="POST"
+                    action="{{ url_for('auth.logout') }}"
+                >
+                    <button
+                        type="submit"
+                        class="btn secondary small"
+                    >
+                        Log out
+                    </button>
+                </form>
+            {% endif %}
+
+        </div>
+    </header>
+
+    <!-- Main Page Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Shared Footer -->
+    <footer
+        style="
+            padding: 22px 16px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+        "
+    >
+        <p style="margin: 0;">
+            🛡️ LogSec — Log Security Analyzer
+        </p>
+
+        <p style="margin: 5px 0 0;">
+            Detect suspicious login activity. Analyze logs. Stay informed.
+        </p>
+    </footer>
+
+    <!-- Common theme controller -->
+    <script
+        src="{{ url_for('static', filename='js/theme.js') }}"
+        defer
+    ></script>
+
+    <!-- Page-specific JavaScript -->
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>
+

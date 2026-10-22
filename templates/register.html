@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}LogSec | Create Account{% endblock %}
+
+{% block extra_css %}
+
+<style>
+    .register-page {
+        min-height: 75vh;
+        padding: 35px 20px;
+        display: grid;
+        place-items: center;
+    }
+
+    .register-card {
+        width: 100%;
+        max-width: 480px;
+        padding: 32px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 20px 55px rgba(0, 0, 0, 0.12);
+    }
+
+    .register-brand {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+
+    .register-brand .brand-icon {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 12px;
+        display: grid;
+        place-items: center;
+        border-radius: 17px;
+        background: rgba(45, 212, 191, 0.14);
+        font-size: 28px;
+    }
+
+    .register-brand h1 {
+        font-size: 28px;
+        margin-bottom: 7px;
+    }
+
+    .register-brand h1 span {
+        color: var(--accent);
+    }
+
+    .register-brand p,
+    .register-heading p {
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .register-heading {
+        margin-bottom: 22px;
+    }
+
+    .register-heading h2 {
+        font-size: 23px;
+        margin-bottom: 8px;
+    }
+
+    .register-heading p {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .register-form .form-group {
+        margin-bottom: 16px;
+    }
+
+    .register-form label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .register-form input {
+        width: 100%;
+        min-height: 45px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--input);
+        color: var(--text);
+        font-size: 14px;
+        outline: none;
+    }
+
+    .register-form input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.13);
+    }
+
+    .register-form input::placeholder {
+        color: var(--muted);
+        opacity: 0.85;
+    }
+
+    .password-wrap {
+        position: relative;
+    }
+
+    .password-wrap input {
+        padding-right: 68px;
+    }
+
+    .show-password {
+        position: absolute;
+        right: 9px;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 7px;
+        border: none;
+        background: transparent;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .password-hint {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 11px;
+    }
+
+    .register-submit {
+        width: 100%;
+        margin-top: 7px;
+    }
+
+    .register-switch {
+        margin-top: 22px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .register-switch a {
+        color: var(--accent);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .register-switch a:hover {
+        text-decoration: underline;
+    }
+
+    .register-security-note {
+        margin-top: 23px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        text-align: center;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    @media (max-width: 480px) {
+        .register-page {
+            padding: 20px 10px;
+        }
+
+        .register-card {
+            padding: 25px 20px;
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="register-page">
+    <main class="register-card">
+
+    <header class="register-brand">
+        <div class="brand-icon" aria-hidden="true">🛡️</div>
+        <h1>Log<span>Sec</span></h1>
+        <p>Intelligent Log Security Analyzer</p>
+    </header>
+
+    <section class="register-heading">
+        <h2>Create your account</h2>
+        <p>Register to access your security dashboard.</p>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="flash-message {{ category }}" role="status">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    <form
+        class="register-form"
+        method="POST"
+        action="{{ url_for('auth.register') }}"
+    >
+        <div class="form-group">
+            <label for="full_name">Full name</label>
+            <input
+                type="text"
+                id="full_name"
+                name="full_name"
+                placeholder="Enter your full name"
+                value="{{ request.form.get('full_name', '') }}"
+                autocomplete="name"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email address</label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="Enter your email address"
+                value="{{ request.form.get('email', '') }}"
+                autocomplete="email"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Choose a username"
+                value="{{ request.form.get('username', '') }}"
+                autocomplete="username"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+
+            <div class="password-wrap">
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Create a password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                >
+
+                <button
+                    class="show-password"
+                    type="button"
+                    data-target="password"
+                    aria-label="Show password"
+                >Show</button>
+            </div>
+
+            <p class="password-hint">Use at least 8 characters.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password">Confirm password</label>
+
+            <div class="password-wrap">
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    placeholder="Re-enter your password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                >
+
+                <button
+                    class="show-password"
+                    type="button"
+                    data-target="confirm_password"
+                    aria-label="Show confirm password"
+                >Show</button>
+            </div>
+        </div>
+
+        <button class="btn primary register-submit" type="submit">
+            Create account →
+        </button>
+    </form>
+
+    <p class="register-switch">
+        Already have an account?
+        <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </p>
+
+    <p class="register-security-note">
+        🛡️ LogSec · Log Security Analyzer
+    </p>
+
+</main>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+    document.querySelectorAll(".show-password").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const input = document.getElementById(button.dataset.target);
+            const isPassword = input.type === "password";
+
+            input.type = isPassword ? "text" : "password";
+            button.textContent = isPassword ? "Hide" : "Show";
+
+            button.setAttribute(
+                "aria-label",
+                isPassword ? "Hide password" : "Show password"
+            );
+        });
+    });
+</script>
+
+{% endblock %}

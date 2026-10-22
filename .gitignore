@@ -1,0 +1,37 @@
+# Python cache files
+
+**pycache**/
+*.py[cod]
+
+# Virtual environment
+
+venv/
+.venv/
+
+# Secrets
+
+.env
+.env.*
+!.env.example
+.logsec_secret
+
+# Local database
+
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+
+uploads/*
+
+# Logs
+
+*.log
+live_logs.txt
+
+# Temporary and backup files
+
+app_backup.py
+.DS_Store
+Thumbs.db

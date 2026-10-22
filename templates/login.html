@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}LogSec | Login{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Login-specific styles only.
+       Common styling comes from static/css/style.css. */
+
+    .login-page {
+        display: grid;
+        place-items: center;
+        min-height: 75vh;
+        padding: 35px 18px;
+    }
+
+    .login-wrapper {
+        width: 100%;
+        max-width: 440px;
+    }
+
+    .login-card {
+        padding: 36px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+    }
+
+    .login-brand {
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .login-brand-icon {
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 14px;
+        background: var(--panel-secondary);
+        border: 1px solid var(--border);
+        border-radius: 17px;
+        font-size: 28px;
+    }
+
+    .login-brand h1 {
+        margin-bottom: 7px;
+        font-size: 30px;
+        font-weight: 850;
+        letter-spacing: -0.8px;
+    }
+
+    .login-brand h1 span {
+        color: var(--accent);
+    }
+
+    .login-brand p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .login-heading h2 {
+        margin-bottom: 8px;
+        font-size: 25px;
+    }
+
+    .login-heading p {
+        margin-bottom: 24px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .login-password-wrap {
+        position: relative;
+    }
+
+    .login-password-wrap input {
+        padding-right: 75px;
+    }
+
+    .login-show-password {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        padding: 7px;
+        color: var(--accent);
+        background: transparent;
+        border: 0;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .login-show-password:hover {
+        text-decoration: underline;
+    }
+
+    .login-submit {
+        width: 100%;
+        margin-top: 5px;
+    }
+
+    .login-switch {
+        margin: 23px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+    }
+
+    .login-security-note {
+        margin: 25px 0 0;
+        padding-top: 17px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+    }
+
+    @media (max-width: 480px) {
+        .login-card {
+            padding: 26px 20px;
+        }
+
+        .login-page {
+            padding: 24px 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="login-page">
+    <div class="login-wrapper">
+
+        <section class="login-card">
+
+            <header class="login-brand">
+                <div class="login-brand-icon" aria-hidden="true">
+                    🛡️
+                </div>
+
+                <h1><span>LogSec</span></h1>
+
+                <p>Intelligent Log Security Analyzer</p>
+            </header>
+
+            <div class="login-heading">
+                <h2>Welcome back</h2>
+
+                <p>
+                    Sign in to access your security dashboard.
+                </p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div
+                        class="flash-message {{ category }}"
+                        role="status"
+                    >
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endwith %}
+
+            <form
+                method="POST"
+                action="{{ url_for('auth.login') }}"
+            >
+                <div class="form-group">
+                    <label for="identity">
+                        Username or email
+                    </label>
+
+                    <input
+                        type="text"
+                        id="identity"
+                        name="identity"
+                        placeholder="Enter username or email"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <div class="login-password-wrap">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <button
+                            class="login-show-password"
+                            type="button"
+                            data-password-toggle="password"
+                            aria-label="Show password"
+                            aria-pressed="false"
+                        >
+                            Show
+                        </button>
+                    </div>
+                </div>
+
+                <button
+                    class="btn primary login-submit"
+                    type="submit"
+                >
+                    Sign in →
+                </button>
+            </form>
+
+            <p class="login-switch">
+                Don't have an account?
+                <a href="{{ url_for('auth.register') }}">
+                    Create account
+                </a>
+            </p>
+
+            <p class="login-security-note">
+                🛡️ Secure access to your LogSec dashboard
+            </p>
+
+        </section>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    "use strict";
+
+    document.querySelectorAll("[data-password-toggle]").forEach(
+        function (button) {
+            button.addEventListener("click", function () {
+                const inputId = button.getAttribute(
+                    "data-password-toggle"
+                );
+
+                const passwordInput = document.getElementById(inputId);
+
+                if (!passwordInput) {
+                    return;
+                }
+
+                const shouldShow =
+                    passwordInput.type === "password";
+
+                passwordInput.type = shouldShow
+                    ? "text"
+                    : "password";
+
+                button.textContent = shouldShow
+                    ? "Hide"
+                    : "Show";
+
+                button.setAttribute(
+                    "aria-label",
+                    shouldShow ? "Hide password" : "Show password"
+                );
+
+                button.setAttribute(
+                    "aria-pressed",
+                    String(shouldShow)
+                );
+            });
+        }
+    );
+</script>
+{% endblock %}
+
